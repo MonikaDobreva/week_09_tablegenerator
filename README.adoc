@@ -1,0 +1,114 @@
+:toc: macro
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+:imagesdir: images/
+endif::[]
+
+= Table Generator
+
+toc::[]
+
+*Goal*: Generate (PostgreSQL) SQL table definition (DDL) from entities. The table definition is based on the entity name and the fields (the name, the type and the https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/annotation/package-summary.html[annotations]).
+
+== Background info
+
+First the name of the entity is converted to lower case and made plural (add a 's' at the end),
+e.g. the `Student` entity, becomes the `students` table.
+
+Second all Java types are converted to their respective SQL types, see table <<typemapping>> . This relation is already given in the class `TypeMappings`.
+
+The annotations on the fields are converted into different types or into restrictions, see the list below. 
+[[annotations]]
+* `@ID` should generate a `SERIAL` (if the field is an integer) or `BIGSERIAL` (if the field is a long) and have the `PRIMARY KEY` attribute.
+* `@NotNull` should result in a `NOT NULL` constraint.
+* `@Check` should copy the value (text) of the annotation as parameter to the `CHECK` constraint.
+* `@Default` should copy the value as the `DEFAULT` value. Quote the value where needed.
+
+.Mapping of types from Java to SQL
+[cols=2,options=header]
+[[typemapping]]
+|====
+|  Java                    |  SQL
+| java.lang.String         |  TEXT
+| java.lang.Character      |  CHAR(1)
+| java.lang.Integer        |  INTEGER
+| int                      |  INTEGER
+| java.lang.Short          |  SMALLINT
+| short                    |  SMALLINT
+| java.lang.Long           |  BIGINT
+| long                     |  BIGINT
+| java.math.BigDecimal     |  DECIMAL
+| java.math.BigInteger     |  NUMERIC
+| java.lang.Float          |  REAL
+| float                    |  REAL
+| java.lang.Double         |  DOUBLE PRECISION
+| double                   |  DOUBLE PRECISION
+| java.time.LocalDate      |  DATE
+| java.time.LocalDateTime  |  TIMESTAMP
+|====
+
+
+=== Example
+
+Given the entity below:
+
+.Example Module class.
+[source,java]
+----
+public class CourseModule {
+
+    @ID
+    private Integer moduleid;
+
+    @NotNull
+    String name;
+
+    @NotNull 
+    @Default(value = "5") 
+    @Check(value = "credits > 0")
+    Integer credits;
+
+    // extra ctor to make the default values take effect.
+    public CourseModule( Integer moduleid, String name ) {
+        this( moduleid, name, 5 );
+    }
+}
+----
+
+The output should look like:
+
+.Example Output.
+[source,sql]
+----
+CREATE TABLE coursemodules (
+  moduleid SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  credits INTEGER NOT NULL DEFAULT (5) CHECK (credits > 0)
+);
+----
+
+== TODO
+
+. Start by implementing `GeneratorTestBase`
+.. Implement the `startWithCREATE` method
+*** Assert that the first line starts with `CREATE TABLE`
+*** Use the `tableDefinition` to get the first line
+.. Implement the `tableName` method
+*** Assert that the correct table name is used in the `CREATE TABLE` statement
+*** Again use the `tableDefinition` to get the first line and assert that `tableName` is present
+.. Implement `assertTypeConversion`
+*** Use `SoftAssertions`
+*** Assert that the column for the given fieldname is present (`columnDefinition`)
+*** Assert that the column definition is as expected (`expectedDefinition`)
+. Implement `PGTableCreator`
+.. Start by implementing `createTable`
+.. Implement `processAnnotations`
+*** Use a `StringBuilder` to store the intermediate result
+*** Retrieve the annotations from the provided `field`
+*** To compare a retrieved `Annotation` with an `Annotation`, e.g. `NotNull` you can use `annotationType` to retrieve the class from the `Annotation` and then compare using `annotation.annotationType() == NotNull.class`
+*** Check the <<annotations>> rules
+**** For the `@ID` annotation it might be easiest to override the `pgTypeName` to the correct type
