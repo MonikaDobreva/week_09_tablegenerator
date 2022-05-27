@@ -47,8 +47,11 @@ abstract class GeneratorTestBase {
     //@Disabled( "Think TDD" )
     @Test
     void startWithCREATE() {
-        //TODO assert that the tableDefinition starts with 'CREATE TABLE
-        fail( "method startWithCREATE reached end. You know what to do." );
+        String actual = clz.getSimpleName().toLowerCase();
+        String expected = "CREATE TABLE";
+        assertTypeConversion(tableDefinition, actual, expected);
+        
+        //fail( "method startWithCREATE reached end. You know what to do." );
     }
     
     /**
@@ -57,8 +60,11 @@ abstract class GeneratorTestBase {
     //@Disabled( "Think TDD" )
     @Test
     void tableName() {
-        //TODO make sure table name is `tableName`
-        fail("test tableName not implemented");
+        String actual = clz.getSimpleName().toLowerCase();
+        String expected = clz.getSimpleName().toLowerCase() + "s";
+        assertTypeConversion(tableDefinition, actual, expected);
+
+        //fail("test tableName not implemented");
     }
     
     /**
@@ -78,8 +84,12 @@ abstract class GeneratorTestBase {
     void assertTypeConversion( List<String> tableDef, String fieldName, String expectedDefinition ) {
         Optional<String> columnDefinition = tableDef.stream()
                 .filter( s -> s.contains( fieldName ) ).findAny();
-        //TODO softly assert that the column name
-        fail("test assertTypeConversion not implemented");
+
+        SoftAssertions.assertSoftly(softly -> {
+            softly.assertThat(columnDefinition.isPresent()).isTrue();
+            softly.assertThat(columnDefinition.get().contains(expectedDefinition));
+        });
+        //fail("test assertTypeConversion not implemented");
     }
 
 }

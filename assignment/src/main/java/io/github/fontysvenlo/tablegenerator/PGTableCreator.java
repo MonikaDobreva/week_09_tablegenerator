@@ -32,10 +32,9 @@ public class PGTableCreator<E> implements TableCreator<E> {
      */
     @Override
     public void createTable( Appendable out ) throws IOException {
-            //TODO start with CREATE TABLE definition
-            
-            //TODO get all the fields of the entity
-            Field[] declaredFields = null;
+        out.append("CREATE TABLE ").append(entityType.getSimpleName().toLowerCase()).append("s (\n");
+
+            Field[] declaredFields = entityType.getDeclaredFields();
             List<String> outLines = new ArrayList<>();
             for ( Field field : declaredFields ) {
                 StringBuilder ol = new StringBuilder();
@@ -66,7 +65,33 @@ public class PGTableCreator<E> implements TableCreator<E> {
      * @return the column definition
      */
     String processAnnotations( String pgTypeName, Field field ) {
-        //TODO implement method processAnnotations
-        return "";
+        StringBuilder annotationBuild = new StringBuilder();
+        Annotation[] annotations = field.getDeclaredAnnotations();
+        boolean contained = false;
+
+        for (Annotation info : annotations){
+            if (info.toString().contains("ID")){
+                contained = true;
+
+                if (pgTypeName.equals("INTEGER")){
+                    annotationBuild.append(" SERIAL PRIMARY KEY");
+                } else if (pgTypeName.equals("BIGINT")){
+                    annotationBuild.append(" BIGSERIAL PRIMARY KEY");
+                }
+
+            } else if (info.toString().contains("NotNull")){
+                annotationBuild.append(" NOT NULL");
+            } else if (info.toString().contains("Default")){
+                annotationBuild.append(" DEFAULT (").append(info.toString().split("\"")[1]).append(")");
+            } else if (info.toString().contains("Check")){
+                annotationBuild.append(" CHECK (").append(info.toString().split("\"")[1]).append(")");
+            }
+        }
+
+        if (contained){
+            return field.getName() + annotationBuild;
+        } else {
+            return field.getName() + " " + pgTypeName + annotationBuild;
+        }
     }
 }
